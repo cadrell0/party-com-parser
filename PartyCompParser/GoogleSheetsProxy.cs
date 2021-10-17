@@ -12,19 +12,17 @@ namespace PartyCompParser
         private const string SheetDataUrl =
             "https://script.google.com/macros/s/AKfycbzoFHtHU9sTztKd9zrbAzJdKtc72aDgAruTmjpkRwpPi5vjyCa7XVtpCiIxfwbPMcFa/exec";
 
+        private static readonly HttpClient HttpClient = new HttpClient();
 
         public static async Task<SheetData> GetSheetDataAsync()
         {
-            using var httpClient = new HttpClient();
-            var response = await httpClient.GetFromJsonAsync<SheetData>(SheetDataUrl);
-
+            var response = await HttpClient.GetFromJsonAsync<SheetData>(SheetDataUrl);
             return response;
         }
 
         public static async Task PostResultsAsync(string[][] results)
         {
-            using var httpClient = new HttpClient();
-            var response = await httpClient.PostAsJsonAsync(SheetDataUrl, results);
+            var response = await HttpClient.PostAsJsonAsync(SheetDataUrl, results);
             response.EnsureSuccessStatusCode();
         }
     }
