@@ -21,7 +21,7 @@ namespace PartyCompParser
         private static async Task Main(string[] args)
         {
             var sheetData = await GoogleSheetsProxy.GetSheetDataAsync();
-            var jobSelections = JoinSelectionBuilder.GetJobSelections(sheetData);
+            var jobSelections = JobSelectionBuilder.GetJobSelections(sheetData);
             var partyCompositions = PartyCompositionCalculator.GetPossibleCompositions(RoleRequirements, jobSelections);
             var playerNames = sheetData.players.Keys.Where(k => k != "undefined").ToList();
             await OutputResults(playerNames, partyCompositions);

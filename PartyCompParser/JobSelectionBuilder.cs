@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace PartyCompParser
 {
-    internal class JoinSelectionBuilder
+    internal class JobSelectionBuilder
     {
         public static List<JobSelection> GetJobSelections(SheetData sheetData)
         {
