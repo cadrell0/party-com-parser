@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -47,7 +48,6 @@ namespace PartyCompParser
             }
 
             var results = body.Prepend(headers).ToArray();
-
             await GoogleSheetsProxy.PostResultsAsync(results);
         }
 

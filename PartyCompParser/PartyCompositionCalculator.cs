@@ -1,42 +1,56 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace PartyCompParser
 {
     public static class PartyCompositionCalculator
     {
-        private static readonly List<PartyComposition> UniquePartyCompositions = new();
+        private static readonly ConcurrentDictionary<string, PartyComposition> UniquePartyCompositions = new();
 
         public static IEnumerable<PartyComposition> GetPossibleCompositions(
             IEnumerable<RoleRequirement> roleRequirements,
             IEnumerable<JobSelection> jobSelections)
         {
-            ProcessRemainingRoles(jobSelections, Enumerable.Empty<JobSelection>(), roleRequirements);
+            ProcessRoles(jobSelections, roleRequirements);
 
             var uniquePlayerCount = jobSelections.Select(js => js.Name).Distinct().Count();
-            return UniquePartyCompositions.Where(pc => pc.Assignments.Count() == uniquePlayerCount)
-                                          //.Where(pc => roleRequirements.All(rr => rr.IsSatisfied(pc)))
+            return UniquePartyCompositions.Select(d => d.Value)
+                                          .Where(pc => pc.Assignments.Count() == uniquePlayerCount)
+                                          .Where(pc => roleRequirements.All(rr => rr.IsSatisfied(pc)))
                                           .ToList();
         }
 
+        private static void ProcessRoles(IEnumerable<JobSelection> available,
+                                         IEnumerable<RoleRequirement> remainingRoles)
+        {
+            
+            foreach (var roleRequirement in remainingRoles)
+            {
+                var newRemaining = remainingRoles.ToList();
+                newRemaining.Remove(roleRequirement);
+                GetPossibleAssignments(roleRequirement, available, new PartyComposition(), newRemaining);
+            }
+        }
+
         private static void ProcessRemainingRoles(IEnumerable<JobSelection> available,
-                                                  IEnumerable<JobSelection> assigned,
+                                                  PartyComposition partyComposition,
                                                   IEnumerable<RoleRequirement> remainingRoles)
         {
             foreach (var roleRequirement in remainingRoles)
             {
                 var newRemaining = remainingRoles.ToList();
                 newRemaining.Remove(roleRequirement);
-                GetPossibleAssignments(roleRequirement, available, assigned, newRemaining);
+                GetPossibleAssignments(roleRequirement, available, partyComposition, newRemaining);
             }
         }
 
         private static void GetPossibleAssignments(RoleRequirement requirement,
                                                    IEnumerable<JobSelection> available,
-                                                   IEnumerable<JobSelection> assigned,
+                                                   PartyComposition partyComposition,
                                                    IEnumerable<RoleRequirement> remainingRoles)
         {
-            var roleAssigned = assigned.Count(a => a.Role == requirement.Role);
+            var roleAssigned = partyComposition.Assignments.Count(a => a.Role == requirement.Role);
 
             var maxAssigned = requirement.Max == roleAssigned;
 
@@ -47,49 +61,62 @@ namespace PartyCompParser
 
             if (maxAssigned || noneAvailableForRole)
             {
-                ProcessRemainingRoles(available, assigned, remainingRoles);
+                ProcessRemainingRoles(available, partyComposition, remainingRoles);
             }
             else
             {
-                TryEachAvailableSelection(roleAvailable, requirement, available, assigned, remainingRoles);
+                TryEachAvailableSelection(roleAvailable, requirement, available, partyComposition, remainingRoles);
             }
         }
 
         private static void TryEachAvailableSelection(JobSelection[] roleAvailable,
                                                       RoleRequirement requirement,
                                                       IEnumerable<JobSelection> available,
-                                                      IEnumerable<JobSelection> assigned,
+                                                      PartyComposition partyComposition,
                                                       IEnumerable<RoleRequirement> remainingRoles)
         {
             foreach (var selection in roleAvailable)
             {
-                var newAssigned = assigned.Append(selection).ToList();
+                var newComposition = partyComposition.Clone();
+                newComposition.Add(selection);
 
-                if (!IsCompositionUnique(newAssigned))
+                if (!IsCompositionUnique(newComposition))
                 {
                     continue;
                 }
 
-                var remainingAvailable = available.Where(a => a.Job != selection.Job
+                List<JobSelection> remainingAvailable;
+
+                if (selection.Job.StartsWith("Any"))
+                {
+                    remainingAvailable = available.Where(a => a.Name != selection.Name)
+                                                  .ToList();
+                }
+                else
+                {
+                    remainingAvailable = available.Where(a => a.Job != selection.Job
                                                               && a.Name != selection.Name)
                                                   .ToList();
+                }
 
-                GetPossibleAssignments(requirement, remainingAvailable, newAssigned, remainingRoles);
+                GetPossibleAssignments(requirement, remainingAvailable, newComposition, remainingRoles);
             }
         }
 
-        private static bool IsCompositionUnique(IEnumerable<JobSelection> assignments)
+        private static bool IsCompositionUnique(PartyComposition partyComposition)
         {
-            foreach (var partyComposition in UniquePartyCompositions)
-            {
-                if (assignments.All(partyComposition.Assignments.Contains))
-                {
-                    return false;
-                }
-            }
+            return UniquePartyCompositions.TryAdd(partyComposition.Key, partyComposition);
+            //foreach (var partyComposition in UniquePartyCompositions)
+            //{
+            //    if (assignments.All(partyComposition.Assignments.Contains)
+            //        && assignments.Count() == partyComposition.Assignments.Count())
+            //    {
+            //        return false;
+            //    }
+            //}
 
-            UniquePartyCompositions.Add(new PartyComposition(assignments));
-            return true;
+            //UniquePartyCompositions.Add(composition);
+            //return true;
         }
     }
 }
